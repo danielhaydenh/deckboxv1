@@ -16,8 +16,7 @@ import CardDetailModal from './CardDetailModal';
 
 const PAGE_SIZE = 10; // smaller = faster responses
 
-
-const DeckEditor = ({deck, onUpdate, onDelete, onBack, showToast, apiKey }) => {
+const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => {
   const [activeTab] = useState('list');
   const [listSubTab, setListSubTab] = useState('Pokémon');
 
@@ -40,8 +39,8 @@ const DeckEditor = ({deck, onUpdate, onDelete, onBack, showToast, apiKey }) => {
   const [showAddConfirmation, setShowAddConfirmation] = useState(false);
 
   // New refs
-  const searchCache = useRef(new Map());      // cache query -> card list
-  const abortRef = useRef(null);             // track the current fetch
+  const searchCache = useRef(new Map()); // cache query -> card list
+  const abortRef = useRef(null); // track the current fetch
 
   const counts = useMemo(() => {
     const c = { pokemon: 0, trainer: 0, energy: 0, total: 0, owned: 0 };
@@ -293,7 +292,6 @@ const DeckEditor = ({deck, onUpdate, onDelete, onBack, showToast, apiKey }) => {
     }
   };
 
-
   const buildSearchQuery = (rawName, format) => {
     const trimmed = rawName.trim();
     const base = trimmed.includes(":") ? trimmed : `name:"${trimmed}*"`;
@@ -305,13 +303,12 @@ const DeckEditor = ({deck, onUpdate, onDelete, onBack, showToast, apiKey }) => {
     return base;
   };
 
-
   const performSearch = async () => {
     const raw = searchQuery.trim();
     if (!raw) return;
 
     const lower = raw.toLowerCase();
-  
+
     // Demo shortcut
     if (lower === "demo" || lower === "test") {
       setSearchResults(DEMO_SEARCH_RESULTS);
@@ -326,16 +323,16 @@ const DeckEditor = ({deck, onUpdate, onDelete, onBack, showToast, apiKey }) => {
       setSearchResults(searchCache.current.get(rawQuery));
       return;
     }
-  
+
     // Cancel previous in flight search
     if (abortRef.current) {
       abortRef.current.abort();
     }
     const controller = new AbortController();
     abortRef.current = controller;
-  
+
     setIsSearching(true);
-  
+
     const keyToUse = apiKey || DEFAULT_API_KEY;
     const headers = keyToUse ? { "X-Api-Key": keyToUse } : {};
     const selectFields =
@@ -344,28 +341,29 @@ const DeckEditor = ({deck, onUpdate, onDelete, onBack, showToast, apiKey }) => {
     try {
       const q = encodeURIComponent(rawQuery);
 
-      const url = `/api/pokemontcg/cards?q=${q}&pageSize=10&select=${selectFields}&orderBy=-set.releaseDate,-number`;
+      // Make sure this matches your Vercel API route path
+      const url = `/api/pokemontcg?q=${q}&pageSize=${PAGE_SIZE}&select=${selectFields}&orderBy=-set.releaseDate,-number`;
 
       console.log("[Search] Requesting:", url);
-  
+
       let res = await fetch(url, {
         headers,
         signal: controller.signal,
       });
-  
+
       // If auth problem with key, retry without it
       if (res.status === 401 || res.status === 403) {
         console.warn("[Search] API key issue", res.status);
         res = await fetch(url, { signal: controller.signal });
       }
-  
+
       if (!res.ok) {
         const text = await res.text();
         console.error("[Search] HTTP error", res.status, text);
         showToast("Search failed", "error");
         return;
       }
-  
+
       const data = await res.json();
       console.log("[Search] Response data:", data);
 
@@ -374,7 +372,7 @@ const DeckEditor = ({deck, onUpdate, onDelete, onBack, showToast, apiKey }) => {
       // Cache result
       searchCache.current.set(rawQuery, cards);
       setSearchResults(cards);
-  
+
       if (!cards.length) {
         showToast("No cards found", "success");
       }
@@ -392,9 +390,6 @@ const DeckEditor = ({deck, onUpdate, onDelete, onBack, showToast, apiKey }) => {
       setIsSearching(false);
     }
   };
-  
-
-
 
   return (
     <div className="h-[calc(100vh-64px)] md:h-[calc(100vh-100px)] flex flex-col md:flex-row gap-6 animate-fade-in relative">
@@ -494,7 +489,7 @@ const DeckEditor = ({deck, onUpdate, onDelete, onBack, showToast, apiKey }) => {
         showAddConfirmation={showAddConfirmation}
       />
 
-          {selectedCard && (
+      {selectedCard && (
         <CardDetailModal
           card={selectedCard}
           onClose={() => setSelectedCard(null)}
@@ -505,4 +500,3 @@ const DeckEditor = ({deck, onUpdate, onDelete, onBack, showToast, apiKey }) => {
 };
 
 export default DeckEditor;
-

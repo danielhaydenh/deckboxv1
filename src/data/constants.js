@@ -1,7 +1,8 @@
 // src/data/constants.js
-// Use the production API directly by default so searches work outside the
-// local Vite proxy. The URL can be overridden with VITE_POKEMON_TCG_API_URL
-// (e.g. "/api/pokemontcg/cards") for local development.
+
+// Use the production API directly by default so searches and imports work
+// everywhere. The URL can be overridden with VITE_POKEMON_TCG_API_URL
+// (for example "/api/pokemontcg" for a local/Vercel proxy).
 export const POKEMON_TCG_API_URL =
   import.meta.env.VITE_POKEMON_TCG_API_URL ||
   "https://api.pokemontcg.io/v2/cards";
@@ -12,7 +13,6 @@ export const DEFAULT_API_KEY =
     : "7113ac06-a7ab-4216-9030-6b5d2e61dd18";
 
 // keep your COLORS / TYPE_SYMBOLS / TYPE_ICONS / globalStyles etc here as before
-
 
 // Deck formats
 export const FORMATS = ['Standard', 'Expanded', 'Unlimited', 'GLC'];
