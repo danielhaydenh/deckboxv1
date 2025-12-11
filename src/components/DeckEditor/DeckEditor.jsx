@@ -294,10 +294,22 @@ const DeckEditor = ({deck, onUpdate, onDelete, onBack, showToast, apiKey }) => {
   };
 
 
+  const buildSearchQuery = (rawName, format) => {
+    const trimmed = rawName.trim();
+    const base = trimmed.includes(":") ? trimmed : `name:"${trimmed}*"`;
+
+    if (format === "Standard") {
+      return `${base} (regulationMark:"G" OR regulationMark:"H" OR regulationMark:"I")`;
+    }
+
+    return base;
+  };
+
+
   const performSearch = async () => {
     const raw = searchQuery.trim();
     if (!raw) return;
-  
+
     const lower = raw.toLowerCase();
   
     // Demo shortcut
@@ -306,10 +318,12 @@ const DeckEditor = ({deck, onUpdate, onDelete, onBack, showToast, apiKey }) => {
       showToast("Loaded demo cards", "success");
       return;
     }
-  
+
+    const rawQuery = buildSearchQuery(searchQuery, deck.format);
+
     // Use cached result if we have one
-    if (searchCache.current.has(raw)) {
-      setSearchResults(searchCache.current.get(raw));
+    if (searchCache.current.has(rawQuery)) {
+      setSearchResults(searchCache.current.get(rawQuery));
       return;
     }
   
@@ -326,15 +340,12 @@ const DeckEditor = ({deck, onUpdate, onDelete, onBack, showToast, apiKey }) => {
     const headers = keyToUse ? { "X-Api-Key": keyToUse } : {};
     const selectFields =
       "id,name,images,supertype,subtypes,types,set,number,rarity,hp,evolvesFrom,abilities,attacks,weaknesses,resistances,retreatCost,regulationMark,rules";
-  
+
     try {
-      // Keep the query simple so the API is less likely to choke
-      const q = raw.includes(":") ? raw : `name:"${raw}*"`;
-  
-      const url = `${POKEMON_TCG_API_URL}?pageSize=10&select=${selectFields}&q=${encodeURIComponent(
-        q
-      )}`;
-  
+      const q = encodeURIComponent(rawQuery);
+
+      const url = `/api/pokemontcg/cards?q=${q}&pageSize=10&select=${selectFields}&orderBy=-set.releaseDate,-number`;
+
       console.log("[Search] Requesting:", url);
   
       let res = await fetch(url, {
@@ -357,11 +368,11 @@ const DeckEditor = ({deck, onUpdate, onDelete, onBack, showToast, apiKey }) => {
   
       const data = await res.json();
       console.log("[Search] Response data:", data);
-  
+
       const cards = data.data || [];
-  
+
       // Cache result
-      searchCache.current.set(raw, cards);
+      searchCache.current.set(rawQuery, cards);
       setSearchResults(cards);
   
       if (!cards.length) {
