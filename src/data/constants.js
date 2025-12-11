@@ -1,10 +1,8 @@
 // src/data/constants.js
-// Use the production API directly by default so searches work outside the
-// local Vite proxy. The URL can be overridden with VITE_POKEMON_TCG_API_URL
-// (e.g. "/api/pokemontcg/cards") for local development.
+// Allow overriding the API URL for local development, defaulting to the
+// Vercel proxy path.
 export const POKEMON_TCG_API_URL =
-  import.meta.env.VITE_POKEMON_TCG_API_URL ||
-  "https://api.pokemontcg.io/v2/cards";
+  import.meta.env.VITE_POKEMON_TCG_API_URL || "/api/pokemontcg";
 
 export const DEFAULT_API_KEY =
   typeof __pokemon_api_key !== "undefined" && __pokemon_api_key
