@@ -9,7 +9,7 @@ import {
   X,
   Users,
 } from 'lucide-react';
-import { FORMATS } from '../data/constants';
+import { FORMATS } from '../data/constants.js';
 
 const Dashboard = ({ decks, onCreate, onLoadDemo, onSelect, onUpdate }) => {
   const [isCreating, setIsCreating] = useState(false);

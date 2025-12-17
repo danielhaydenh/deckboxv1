@@ -24,8 +24,8 @@ import {
   signInWithCustomToken,
   onAuthStateChanged,
 } from "./components/firebase/firebase";
-import { globalStyles } from './data/constants';
-import { DEMO_DECK } from './data/demoData';
+import { globalStyles } from './data/constants.js';
+import { DEMO_DECK } from './data/demoData.js';
 
 import Toast from './components/Toast';
 import Dashboard from './components/Dashboard';
