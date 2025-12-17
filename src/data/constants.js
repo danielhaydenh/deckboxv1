@@ -1,35 +1,12 @@
 // src/data/constants.js
+// Fixed, direct Pokémon TCG API endpoint for reliable testing (no proxy required).
+export const POKEMON_TCG_API_URL = "https://api.pokemontcg.io/v2/cards";
 
-// API routing strategy (simple + reliable):
-// - On Vercel deployments, use the serverless proxy (keeps the API key off the client).
-// - In other environments (StackBlitz/local), fall back to the public endpoint.
-export const POKEMON_TCG_API_URL = (() => {
-  const envUrl = import.meta.env.VITE_POKEMON_TCG_API_URL?.trim();
-  if (envUrl) {
-    // Guard against the common mistake of setting "/api/pokemontcg" without "/cards".
-    if (envUrl === "/api/pokemontcg") return "/api/pokemontcg/cards";
-    if (envUrl.endsWith("/api/pokemontcg")) return `${envUrl}/cards`;
-    return envUrl;
-  }
+// Default API key used by search and imports.
+export const DEFAULT_API_KEY = "7113ac06-a7ab-4216-9030-6b5d2e61dd18";
 
-  // Auto default: if hosted on Vercel, prefer the proxy route.
-  if (typeof window !== "undefined") {
-    const host = window.location?.hostname || "";
-    if (host.includes("vercel.app")) return "/api/pokemontcg/cards";
-  }
-
-  // Otherwise use the public API directly.
-  return "https://api.pokemontcg.io/v2/cards";
-})();
-
-// Only used when calling the public API directly (StackBlitz/local fallback).
-// When using the Vercel proxy, the API key is read server-side from POKEMON_TCG_API_KEY.
-export const DEFAULT_API_KEY =
-  import.meta.env.VITE_POKEMON_TCG_API_KEY ||
-  (typeof __pokemon_api_key !== "undefined" && __pokemon_api_key
-    ? __pokemon_api_key
-    : "");
 // keep your COLORS / TYPE_SYMBOLS / TYPE_ICONS / globalStyles etc here as before
+
 
 // Deck formats
 export const FORMATS = ['Standard', 'Expanded', 'Unlimited', 'GLC'];
