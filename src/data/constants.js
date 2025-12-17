@@ -2,7 +2,7 @@
 
 // Use the production API directly by default so searches and imports work
 // everywhere. The URL can be overridden with VITE_POKEMON_TCG_API_URL
-// (for example "/api/pokemontcg" for a local/Vercel proxy).
+// (for example "/api/pokemontcg/cards" for a local/Vercel proxy).
 export const POKEMON_TCG_API_URL =
   import.meta.env.VITE_POKEMON_TCG_API_URL ||
   "https://api.pokemontcg.io/v2/cards";

@@ -339,10 +339,22 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
       "id,name,images,supertype,subtypes,types,set,number,rarity,hp,evolvesFrom,abilities,attacks,weaknesses,resistances,retreatCost,regulationMark,rules";
 
     try {
-      const q = encodeURIComponent(rawQuery);
+      // Build a simple, reliable search request.
+      //
+      // - In production we default to the public API endpoint in constants.js
+      // - In local dev, you can set VITE_POKEMON_TCG_API_URL to
+      //   "/api/pokemontcg/cards" which is proxied by vite.config.js
+      //
+      // IMPORTANT: Do NOT hit "/api/pokemontcg" without "/cards".
+      // The Pokémon TCG API expects queries on the /v2/cards route.
+      const params = new URLSearchParams({
+        q: rawQuery,
+        pageSize: String(PAGE_SIZE),
+        select: selectFields,
+        orderBy: "-set.releaseDate,-number",
+      });
 
-      // Make sure this matches your Vercel API route path
-      const url = `/api/pokemontcg?q=${q}&pageSize=${PAGE_SIZE}&select=${selectFields}&orderBy=-set.releaseDate,-number`;
+      const url = `${POKEMON_TCG_API_URL}?${params.toString()}`;
 
       console.log("[Search] Requesting:", url);
 
