@@ -291,18 +291,7 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
     }
   };
 
-    const fetchWithTimeout = async (url, options, timeoutMs = 12000) => {
-    // Note: we cannot reliably cancel fetch in all browsers without extra AbortControllers.
-    // Promise.race keeps UI responsive and allows retries.
-    return await Promise.race([
-      fetch(url, options),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout")), timeoutMs)
-      ),
-    ]);
-  };
-
-const buildSearchQuery = (rawName, format) => {
+  const buildSearchQuery = (rawName, format) => {
     const trimmed = rawName.trim();
     const base = trimmed.includes(":") ? trimmed : `name:${trimmed}*`;
 
@@ -352,9 +341,9 @@ const buildSearchQuery = (rawName, format) => {
       //
       // - In production we default to the public API endpoint in constants.js
       // - In local dev, you can set VITE_POKEMON_TCG_API_URL to
-      //   "/api/pokemontcg/cards" which is proxied by vite.config.js
+      //   "https://api.pokemontcg.io/v2/cards" which is proxied by vite.config.js
       //
-      // IMPORTANT: Do NOT hit "/api/pokemontcg" without "/cards".
+      // IMPORTANT: Do NOT hit "https://api.pokemontcg.io/v2/cards" without "/cards".
       // The Pokémon TCG API expects queries on the /v2/cards route.
       const params = new URLSearchParams({
         q: rawQuery,
@@ -363,55 +352,70 @@ const buildSearchQuery = (rawName, format) => {
         orderBy: "-set.releaseDate,-number",
       });
 
-      const url = `${POKEMON_TCG_API_URL}?${params.toString()}`;
+      const DIRECT_API_URL = "https://api.pokemontcg.io/v2/cards";
+      const url = `${DIRECT_API_URL}?${params.toString()}`;
 
-      const fallbackParams = new URLSearchParams(params);
-      fallbackParams.delete("orderBy");
-      fallbackParams.set("pageSize", "6");
-      const fallbackUrl = `${POKEMON_TCG_API_URL}?${fallbackParams.toString()}`;
+      console.log("[Search] Requesting:", url);
 
-      const urlsToTry = [url, url, fallbackUrl];
-
-      let res;
-      let lastErr;
-
-      for (let attempt = 0; attempt < urlsToTry.length; attempt += 1) {
-        const u = urlsToTry[attempt];
-        console.log("[Search] Requesting:", u);
-
+      let res = null;
+      const tryFetch = async (u, attempt) => {
         try {
-          res = await fetchWithTimeout(
-            u,
-            { headers, signal: controller.signal },
-            12000
-          );
+          return await fetch(u, { headers, signal: controller.signal });
         } catch (e) {
-          lastErr = e;
-          if (controller.signal.aborted) throw e;
-          continue;
+          throw e;
         }
+      };
 
-        // Retry on common upstream timeout codes
-        if (res && [504, 520, 522, 524].includes(res.status)) {
-          lastErr = new Error(`Upstream ${res.status}`);
-          res = null;
-          continue;
+      // Retry on transient upstream failures (Cloudflare 5xx / rate limits).
+      // First try with the full query, then fall back to a simpler name-only query if needed.
+      const SIMPLE_TIMEOUT_MS = 15000;
+
+      const withTimeout = async (u) => {
+        const timeoutController = new AbortController();
+        const t = setTimeout(() => timeoutController.abort(), SIMPLE_TIMEOUT_MS);
+        try {
+          // Merge signals: if the main controller aborts, abort timeoutController too.
+          controller.signal.addEventListener("abort", () => timeoutController.abort(), { once: true });
+          return await fetch(u, { headers, signal: timeoutController.signal });
+        } finally {
+          clearTimeout(t);
         }
+      };
 
-        break;
-      }
+      const transient = new Set([429, 500, 502, 503, 504]);
 
-      if (!res) {
-        console.error("[Search] Request failed after retries", lastErr);
-        showToast("Search timed out, try again", "error");
-        return;
-      }
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+      const attemptFetch = async (u) => {
+        let r = await withTimeout(u);
+        if (transient.has(r.status)) {
+          await sleep(600);
+          r = await withTimeout(u);
+        }
+        return r;
+      };
+
+      res = await attemptFetch(url);
+
 
       // If auth problem with key, retry without it
       if (res.status === 401 || res.status === 403) {
         console.warn("[Search] API key issue", res.status);
         res = await fetch(url, { signal: controller.signal });
       }
+      // If the upstream is timing out, fall back to a simpler query (name only).
+      if (!res.ok && (res.status === 504 || res.status === 503 || res.status === 502)) {
+        const simpleParams = new URLSearchParams({
+          q: `name:${raw}*`,
+          pageSize: String(PAGE_SIZE),
+          select: selectFields,
+          orderBy: "-set.releaseDate,-number",
+        });
+        const simpleUrl = `${DIRECT_API_URL}?${simpleParams.toString()}`;
+        console.warn("[Search] Upstream slow, retrying simplified query:", simpleUrl);
+        res = await attemptFetch(simpleUrl);
+      }
+
 
       if (!res.ok) {
         const text = await res.text();
