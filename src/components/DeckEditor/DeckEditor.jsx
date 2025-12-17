@@ -291,15 +291,23 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
     }
   };
 
-  const buildSearchQuery = (rawName, format) => {
-    const trimmed = rawName.trim();
-    const base = trimmed.includes(":") ? trimmed : `name:${trimmed}*`;
+  // Build a fast server-side query.
+  //
+  // IMPORTANT: Standard format regulationMark filtering is done client-side.
+  // Doing it server-side with OR clauses makes the upstream noticeably slower
+  // and increases the chance of Cloudflare 504s.
+  const buildServerSearchQuery = (rawName) => {
+    const trimmed = (rawName || "").trim();
+    if (!trimmed) return "";
 
-    if (format === "Standard") {
-      return `${base} (regulationMark:"G" OR regulationMark:"H" OR regulationMark:"I")`;
-    }
+    // Allow advanced queries (e.g. "types:Fire")
+    if (trimmed.includes(":")) return trimmed;
 
-    return base;
+    // Name search with wildcard.
+    // If the term has spaces, quote it so the API treats it as one phrase.
+    const safe = trimmed.replace(/"/g, "");
+    if (/\s/.test(safe)) return `name:"${safe}*"`;
+    return `name:${safe}*`;
   };
 
   const performSearch = async () => {
@@ -315,11 +323,15 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
       return;
     }
 
-    const rawQuery = buildSearchQuery(searchQuery, deck.format);
+    const serverQuery = buildServerSearchQuery(searchQuery);
+    if (!serverQuery) return;
+
+    // Cache key includes format because Standard applies a client-side filter.
+    const cacheKey = `${deck.format}::${serverQuery}`;
 
     // Use cached result if we have one
-    if (searchCache.current.has(rawQuery)) {
-      setSearchResults(searchCache.current.get(rawQuery));
+    if (searchCache.current.has(cacheKey)) {
+      setSearchResults(searchCache.current.get(cacheKey));
       return;
     }
 
@@ -345,24 +357,25 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
       //
       // IMPORTANT: Do NOT hit "https://api.pokemontcg.io/v2/cards" without "/cards".
       // The Pokémon TCG API expects queries on the /v2/cards route.
+      // Pull a few more results in Standard so client-side filtering still
+      // leaves enough cards to show.
+      const requestedPageSize = deck.format === "Standard" ? 30 : PAGE_SIZE;
+
       const params = new URLSearchParams({
-        q: rawQuery,
-        pageSize: String(PAGE_SIZE),
-        select: selectFields,      });
+        q: serverQuery,
+        pageSize: String(requestedPageSize),
+        select: selectFields,
+      });
 
-      const proxyUrl = `${POKEMON_TCG_PROXY_URL}?${params.toString()}`;
-      const directUrl = `${POKEMON_TCG_DIRECT_URL}?${params.toString()}`;
-
-      // Proxy first (no CORS preflight), then fallback to direct.
-      const url = proxyUrl;
+      const DIRECT_API_URL = "https://api.pokemontcg.io/v2/cards";
+      const url = `${DIRECT_API_URL}?${params.toString()}`;
 
       console.log("[Search] Requesting:", url);
 
       let res = null;
       const tryFetch = async (u, attempt) => {
         try {
-          const h = u.startsWith("/api/") ? proxyHeaders : directHeaders;
-          return await fetch(u, { headers: h, signal: controller.signal });
+          return await fetch(u, { headers, signal: controller.signal });
         } catch (e) {
           throw e;
         }
@@ -428,6 +441,12 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
       console.log("[Search] Response data:", data);
 
       let cards = data.data || [];
+
+      // Standard: filter regulation marks client-side for speed and reliability.
+      if (deck.format === "Standard") {
+        const allowed = new Set(["G", "H", "I"]);
+        cards = cards.filter((c) => allowed.has(String(c?.regulationMark || "").toUpperCase()));
+      }
       // Client-side sort for speed: avoid server-side orderBy which can be slow.
       cards = cards.slice().sort((a, b) => {
         const ad = a?.set?.releaseDate ? Date.parse(a.set.releaseDate) : 0;
@@ -442,7 +461,7 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
       });
 
       // Cache result
-      searchCache.current.set(rawQuery, cards);
+      searchCache.current.set(cacheKey, cards);
       setSearchResults(cards);
 
       if (!cards.length) {

@@ -30,7 +30,7 @@ import Dashboard from './components/Dashboard';
 import SettingsPage from './components/SettingsPage';
 import DeckEditor from './components/DeckEditor/DeckEditor';
 
-console.log("Deckbox build v2.8 (direct Pokémon TCG API search)");
+console.log("Deckbox build v2.10 (fast Standard filtering, low-risk search)");
 console.log("[Config] Pokémon TCG API URL:", "https://api.pokemontcg.io/v2/cards");
 
 
