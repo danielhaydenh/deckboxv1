@@ -348,9 +348,7 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
       const params = new URLSearchParams({
         q: rawQuery,
         pageSize: String(PAGE_SIZE),
-        select: selectFields,
-        orderBy: "-set.releaseDate,-number",
-      });
+        select: selectFields,      });
 
       const DIRECT_API_URL = "https://api.pokemontcg.io/v2/cards";
       const url = `${DIRECT_API_URL}?${params.toString()}`;
@@ -408,9 +406,7 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
         const simpleParams = new URLSearchParams({
           q: `name:${raw}*`,
           pageSize: String(PAGE_SIZE),
-          select: selectFields,
-          orderBy: "-set.releaseDate,-number",
-        });
+          select: selectFields,        });
         const simpleUrl = `${DIRECT_API_URL}?${simpleParams.toString()}`;
         console.warn("[Search] Upstream slow, retrying simplified query:", simpleUrl);
         res = await attemptFetch(simpleUrl);
@@ -427,7 +423,19 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
       const data = await res.json();
       console.log("[Search] Response data:", data);
 
-      const cards = data.data || [];
+      let cards = data.data || [];
+      // Client-side sort for speed: avoid server-side orderBy which can be slow.
+      cards = cards.slice().sort((a, b) => {
+        const ad = a?.set?.releaseDate ? Date.parse(a.set.releaseDate) : 0;
+        const bd = b?.set?.releaseDate ? Date.parse(b.set.releaseDate) : 0;
+        if (ad !== bd) return bd - ad;
+
+        const an = Number(a?.number ?? 0);
+        const bn = Number(b?.number ?? 0);
+        if (!Number.isNaN(an) && !Number.isNaN(bn) && an !== bn) return bn - an;
+
+        return String(a?.name || "").localeCompare(String(b?.name || ""));
+      });
 
       // Cache result
       searchCache.current.set(rawQuery, cards);
