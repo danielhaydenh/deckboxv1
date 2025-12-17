@@ -207,7 +207,11 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
       currentCard: "Starting...",
     });
 
-    const keyToUse = apiKey || DEFAULT_API_KEY;
+    const isProxy = !POKEMON_TCG_API_URL.startsWith("http");
+
+    // If we are using the Vercel proxy route, do NOT send the API key from the client.
+    // If we are calling the public API directly, include the key.
+    const keyToUse = isProxy ? "" : (apiKey || DEFAULT_API_KEY);
     const headers = keyToUse ? { "X-Api-Key": keyToUse } : {};
     const selectFields =
       "id,name,images,supertype,subtypes,types,set,number,rarity,hp,evolvesFrom,abilities,attacks,weaknesses,resistances,retreatCost,regulationMark,rules";
@@ -333,7 +337,11 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
 
     setIsSearching(true);
 
-    const keyToUse = apiKey || DEFAULT_API_KEY;
+    const isProxy = !POKEMON_TCG_API_URL.startsWith("http");
+
+    // If we are using the Vercel proxy route, do NOT send the API key from the client.
+    // If we are calling the public API directly, include the key.
+    const keyToUse = isProxy ? "" : (apiKey || DEFAULT_API_KEY);
     const headers = keyToUse ? { "X-Api-Key": keyToUse } : {};
     const selectFields =
       "id,name,images,supertype,subtypes,types,set,number,rarity,hp,evolvesFrom,abilities,attacks,weaknesses,resistances,retreatCost,regulationMark,rules";
