@@ -5,7 +5,6 @@ import { Loader2 } from 'lucide-react';
 import {
   DEFAULT_API_KEY,
   POKEMON_TCG_API_URL,
-  POKEMON_TCG_DIRECT_URL,
 } from "../../data/constants";
 
 import { DEMO_SEARCH_RESULTS } from '../../data/demoData';
@@ -209,7 +208,7 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
     });
 
     const keyToUse = apiKey || DEFAULT_API_KEY;
-    const directHeaders = keyToUse ? { "X-Api-Key": keyToUse } : {};
+    const headers = keyToUse ? { "X-Api-Key": keyToUse } : {};
     const selectFields = "id,name,images,set,number,rarity,supertype,subtypes,types,regulationMark";
 
     try {
@@ -292,7 +291,18 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
     }
   };
 
-  const buildSearchQuery = (rawName, format) => {
+    const fetchWithTimeout = async (url, options, timeoutMs = 12000) => {
+    // Note: we cannot reliably cancel fetch in all browsers without extra AbortControllers.
+    // Promise.race keeps UI responsive and allows retries.
+    return await Promise.race([
+      fetch(url, options),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout")), timeoutMs)
+      ),
+    ]);
+  };
+
+const buildSearchQuery = (rawName, format) => {
     const trimmed = rawName.trim();
     const base = trimmed.includes(":") ? trimmed : `name:${trimmed}*`;
 
@@ -334,7 +344,7 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
     setIsSearching(true);
 
     const keyToUse = apiKey || DEFAULT_API_KEY;
-    const directHeaders = keyToUse ? { "X-Api-Key": keyToUse } : {};
+    const headers = keyToUse ? { "X-Api-Key": keyToUse } : {};
     const selectFields = "id,name,images,set,number,rarity,supertype,subtypes,types,regulationMark";
 
     try {
@@ -355,29 +365,52 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
 
       const url = `${POKEMON_TCG_API_URL}?${params.toString()}`;
 
-      console.log("[Search] Requesting:", url);
+      const fallbackParams = new URLSearchParams(params);
+      fallbackParams.delete("orderBy");
+      fallbackParams.set("pageSize", "6");
+      const fallbackUrl = `${POKEMON_TCG_API_URL}?${fallbackParams.toString()}`;
+
+      const urlsToTry = [url, url, fallbackUrl];
 
       let res;
+      let lastErr;
 
-      // Use the same-origin proxy when available to avoid slow CORS preflight.
-      // Only send the API key header when calling the public endpoint directly.
-      if (url.startsWith("/api/")) {
-        res = await fetch(url, { signal: controller.signal });
+      for (let attempt = 0; attempt < urlsToTry.length; attempt += 1) {
+        const u = urlsToTry[attempt];
+        console.log("[Search] Requesting:", u);
 
-        // If the proxy route is missing (common on some hosts), fall back to direct.
-        if (res.status === 404) {
-          const directUrl = `${POKEMON_TCG_DIRECT_URL}?${params.toString()}`;
-          console.warn("[Search] Proxy missing (404). Falling back to direct:", directUrl);
-          res = await fetch(directUrl, {
-            headers: directHeaders,
-            signal: controller.signal,
-          });
+        try {
+          res = await fetchWithTimeout(
+            u,
+            { headers, signal: controller.signal },
+            12000
+          );
+        } catch (e) {
+          lastErr = e;
+          if (controller.signal.aborted) throw e;
+          continue;
         }
-      } else {
-        res = await fetch(url, {
-          headers: directHeaders,
-          signal: controller.signal,
-        });
+
+        // Retry on common upstream timeout codes
+        if (res && [504, 520, 522, 524].includes(res.status)) {
+          lastErr = new Error(`Upstream ${res.status}`);
+          res = null;
+          continue;
+        }
+
+        break;
+      }
+
+      if (!res) {
+        console.error("[Search] Request failed after retries", lastErr);
+        showToast("Search timed out, try again", "error");
+        return;
+      }
+
+      // If auth problem with key, retry without it
+      if (res.status === 401 || res.status === 403) {
+        console.warn("[Search] API key issue", res.status);
+        res = await fetch(url, { signal: controller.signal });
       }
 
       if (!res.ok) {
