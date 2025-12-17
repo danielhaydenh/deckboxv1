@@ -350,15 +350,19 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
         pageSize: String(PAGE_SIZE),
         select: selectFields,      });
 
-      const DIRECT_API_URL = "https://api.pokemontcg.io/v2/cards";
-      const url = `${DIRECT_API_URL}?${params.toString()}`;
+      const proxyUrl = `${POKEMON_TCG_PROXY_URL}?${params.toString()}`;
+      const directUrl = `${POKEMON_TCG_DIRECT_URL}?${params.toString()}`;
+
+      // Proxy first (no CORS preflight), then fallback to direct.
+      const url = proxyUrl;
 
       console.log("[Search] Requesting:", url);
 
       let res = null;
       const tryFetch = async (u, attempt) => {
         try {
-          return await fetch(u, { headers, signal: controller.signal });
+          const h = u.startsWith("/api/") ? proxyHeaders : directHeaders;
+          return await fetch(u, { headers: h, signal: controller.signal });
         } catch (e) {
           throw e;
         }
