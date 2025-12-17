@@ -30,6 +30,9 @@ import Dashboard from './components/Dashboard';
 import SettingsPage from './components/SettingsPage';
 import DeckEditor from './components/DeckEditor/DeckEditor';
 
+console.log("Deckbox build v2.5 (direct Pokémon TCG API search)");
+
+
 export default function DeckBoxApp() {
   const [user, setUser] = useState(null);
   const [view, setView] = useState('dashboard');
