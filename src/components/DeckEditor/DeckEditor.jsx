@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react';
 import {
   DEFAULT_API_KEY,
   POKEMON_TCG_API_URL,
+  POKEMON_TCG_DIRECT_URL,
 } from "../../data/constants";
 
 import { DEMO_SEARCH_RESULTS } from '../../data/demoData';
@@ -208,7 +209,7 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
     });
 
     const keyToUse = apiKey || DEFAULT_API_KEY;
-    const headers = keyToUse ? { "X-Api-Key": keyToUse } : {};
+    const directHeaders = keyToUse ? { "X-Api-Key": keyToUse } : {};
     const selectFields = "id,name,images,set,number,rarity,supertype,subtypes,types,regulationMark";
 
     try {
@@ -333,7 +334,7 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
     setIsSearching(true);
 
     const keyToUse = apiKey || DEFAULT_API_KEY;
-    const headers = keyToUse ? { "X-Api-Key": keyToUse } : {};
+    const directHeaders = keyToUse ? { "X-Api-Key": keyToUse } : {};
     const selectFields = "id,name,images,set,number,rarity,supertype,subtypes,types,regulationMark";
 
     try {
@@ -356,15 +357,27 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
 
       console.log("[Search] Requesting:", url);
 
-      let res = await fetch(url, {
-        headers,
-        signal: controller.signal,
-      });
+      let res;
 
-      // If auth problem with key, retry without it
-      if (res.status === 401 || res.status === 403) {
-        console.warn("[Search] API key issue", res.status);
+      // Use the same-origin proxy when available to avoid slow CORS preflight.
+      // Only send the API key header when calling the public endpoint directly.
+      if (url.startsWith("/api/")) {
         res = await fetch(url, { signal: controller.signal });
+
+        // If the proxy route is missing (common on some hosts), fall back to direct.
+        if (res.status === 404) {
+          const directUrl = `${POKEMON_TCG_DIRECT_URL}?${params.toString()}`;
+          console.warn("[Search] Proxy missing (404). Falling back to direct:", directUrl);
+          res = await fetch(directUrl, {
+            headers: directHeaders,
+            signal: controller.signal,
+          });
+        }
+      } else {
+        res = await fetch(url, {
+          headers: directHeaders,
+          signal: controller.signal,
+        });
       }
 
       if (!res.ok) {

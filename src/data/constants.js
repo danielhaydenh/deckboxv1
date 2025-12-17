@@ -1,6 +1,11 @@
 // src/data/constants.js
 // Fixed, direct Pokémon TCG API endpoint for reliable testing (no proxy required).
-export const POKEMON_TCG_API_URL = "https://api.pokemontcg.io/v2/cards";
+// Prefer same-origin proxy on Vercel to avoid slow CORS preflight.
+export const POKEMON_TCG_PROXY_URL = "/api/pokemontcg/cards";
+export const POKEMON_TCG_DIRECT_URL = "https://api.pokemontcg.io/v2/cards";
+
+// By default use the proxy. The search code will fall back to direct if the proxy is unavailable.
+export const POKEMON_TCG_API_URL = POKEMON_TCG_PROXY_URL;
 
 // Default API key used by search and imports.
 export const DEFAULT_API_KEY = "7113ac06-a7ab-4216-9030-6b5d2e61dd18";
