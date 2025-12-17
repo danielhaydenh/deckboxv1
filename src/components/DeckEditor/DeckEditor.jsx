@@ -209,8 +209,7 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
 
     const keyToUse = apiKey || DEFAULT_API_KEY;
     const headers = keyToUse ? { "X-Api-Key": keyToUse } : {};
-    const selectFields =
-      "id,name,images,supertype,subtypes,types,set,number,rarity,hp,evolvesFrom,abilities,attacks,weaknesses,resistances,retreatCost,regulationMark,rules";
+    const selectFields = "id,name,images,set,number,rarity,supertype,subtypes,types,regulationMark";
 
     try {
       for (let i = 0; i < lines.length; i += 1) {
@@ -294,7 +293,7 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
 
   const buildSearchQuery = (rawName, format) => {
     const trimmed = rawName.trim();
-    const base = trimmed.includes(":") ? trimmed : `name:"${trimmed}*"`;
+    const base = trimmed.includes(":") ? trimmed : `name:${trimmed}*`;
 
     if (format === "Standard") {
       return `${base} (regulationMark:"G" OR regulationMark:"H" OR regulationMark:"I")`;
@@ -335,8 +334,7 @@ const DeckEditor = ({ deck, onUpdate, onDelete, onBack, showToast, apiKey }) => 
 
     const keyToUse = apiKey || DEFAULT_API_KEY;
     const headers = keyToUse ? { "X-Api-Key": keyToUse } : {};
-    const selectFields =
-      "id,name,images,supertype,subtypes,types,set,number,rarity,hp,evolvesFrom,abilities,attacks,weaknesses,resistances,retreatCost,regulationMark,rules";
+    const selectFields = "id,name,images,set,number,rarity,supertype,subtypes,types,regulationMark";
 
     try {
       // Build a simple, reliable search request.
